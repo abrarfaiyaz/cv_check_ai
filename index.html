@@ -1,39 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Resume Feature Extractor</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist/build/pdf.min.js"></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        h1 {
-            text-align: center;
-        }
-        #outputTable {
-            margin-top: 20px;
-            border-collapse: collapse;
-            width: 100%;
-        }
-        #outputTable th, #outputTable td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-        #outputTable th {
-            background-color: #f2f2f2;
-        }
-        button {
-            margin-top: 10px;
-            margin-right: 10px;
-        }
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      h1 {
+        text-align: center;
+      }
+      #outputTable {
+        margin-top: 20px;
+        border-collapse: collapse;
+        width: 100%;
+      }
+      #outputTable th,
+      #outputTable td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+      }
+      #outputTable th {
+        background-color: #f2f2f2;
+      }
+      button {
+        margin-top: 10px;
+        margin-right: 10px;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <h1>Resume Feature Extractor</h1>
     <p>Select a folder containing resumes in PDF format:</p>
     <input type="file" id="pdfUpload" webkitdirectory directory multiple />
@@ -43,148 +44,190 @@
     <table id="outputTable"></table>
 
     <script>
-        //const apiKey = "YOUR_OPENAI_API_KEY"; // Replace with your OpenAI API key
-        let extractedData = [];
+      //const apiKey = "YOUR_OPENAI_API_KEY"; // Replace with your OpenAI API key
+      let extractedData = [];
 
-        async function processResumes() {
-            const input = document.getElementById("pdfUpload");
-            const files = input.files;
-            const outputTable = document.getElementById("outputTable");
+      async function processResumes() {
+        const input = document.getElementById("pdfUpload");
+        const files = input.files;
+        const outputTable = document.getElementById("outputTable");
 
-            if (files.length === 0) {
-                alert("Please select a folder containing PDF files.");
-                return;
-            }
-
-            extractedData = []; // Reset data
-            outputTable.innerHTML = `
-                <tr>
-                    <th>Name</th>
-                    <th>Bachelor’s University</th>
-                    <th>Bachelor’s CGPA</th>
-                    <th>Bachelor’s Year</th>
-                    <th>Master’s University</th>
-                    <th>Master’s CGPA</th>
-                    <th>GRE Score</th>
-                    <th>IELTS Score</th>
-                    <th>TOEFL Score</th>
-                    <th>Awards</th>
-                    <th>Research Interests</th>
-                    <th>Latest Papers</th>
-                    <th>PDF Link</th>
-                </tr>
-            `;
-
-            for (const file of files) {
-                if (file.name.endsWith(".pdf")) {
-                    try {
-                        const text = await extractTextFromPdf(file);
-                        const features = await extractFeaturesWithChatGPT(text);
-                        features.name = file.name; // Add the file name
-                        features.link = URL.createObjectURL(file); // Create a local link
-                        extractedData.push(features);
-
-                        // Add a row to the table
-                        const row = document.createElement("tr");
-                        row.innerHTML = `
-                            <td>${features.name}</td>
-                            <td>${features.bachelor_university}</td>
-                            <td>${features.bachelor_cgpa}</td>
-                            <td>${features.bachelor_year}</td>
-                            <td>${features.master_university}</td>
-                            <td>${features.master_cgpa}</td>
-                            <td>${features.gre}</td>
-                            <td>${features.ielts}</td>
-                            <td>${features.toefl}</td>
-                            <td>${features.awards}</td>
-                            <td>${features.research_interests}</td>
-                            <td>${features.latest_papers}</td>
-                            <td><a href="${features.link}" target="_blank">Open PDF</a></td>
-                        `;
-                        outputTable.appendChild(row);
-                    } catch (error) {
-                        console.error(`Error processing ${file.name}:`, error);
-                    }
-                }
-            }
+        if (files.length === 0) {
+          alert("Please select a folder containing PDF files.");
+          return;
         }
 
-        async function extractTextFromPdf(file) {
-            const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-            let text = '';
+        extractedData = []; // Reset data
+        outputTable.innerHTML = `
+        <tr>
+            <th>Name</th>
+            <th>Bachelor’s University</th>
+            <th>Bachelor’s CGPA</th>
+            <th>Bachelor’s Year</th>
+            <th>Master’s University</th>
+            <th>Master’s CGPA</th>
+            <th>GRE Score</th>
+            <th>IELTS Score</th>
+            <th>TOEFL Score</th>
+            <th>Awards</th>
+            <th>Research Interests</th>
+            <th>Latest Papers</th>
+            <th>PDF Link</th>
+        </tr>
+    `;
 
-            for (let i = 1; i <= pdf.numPages; i++) {
-                const page = await pdf.getPage(i);
-                const content = await page.getTextContent();
-                text += content.items.map(item => item.str).join(' ') + '\n';
-            }
-
-            return text;
-        }
-
-        async function extractFeaturesWithChatGPT(text) {
-            const response = await fetch("https://hgaj64gax1.execute-api.us-east-1.amazonaws.com/dev/processResumes", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({ text })
-            });
-
-            if (!response.ok) {
-                throw new Error(`API Error: ${response.statusText}`);
-            }
-
-            const data = await response.json();
+        for (const file of files) {
+          if (file.name.endsWith(".pdf")) {
             try {
-                return JSON.parse(data.body); // Ensure JSON parsing
-            } catch {
-                throw new Error("Failed to parse API response as JSON.");
+              const text = await extractTextFromPdf(file);
+              //   console.log(text);
+              const features = await extractFeaturesWithChatGPT(text);
+              //   console.log(features);
+
+              if (!features || Object.keys(features).length === 0) {
+                console.error(`No features extracted for ${file.name}`);
+                continue;
+              }
+
+              // Set default values where necessary
+              features.name = file.name || "Unknown Name";
+              features.link = URL.createObjectURL(file);
+              features["Bachelor’s University"] =
+                features["Bachelor’s University"] || "Not Available";
+              features["Bachelor’s CGPA"] =
+                features["Bachelor’s CGPA"] || "Not Available";
+              features["Bachelor’s Year"] =
+                features["Bachelor’s Year"] || "Not Available";
+              features["Master’s University"] =
+                features["Master’s University"] || "Not Available";
+              features["Master’s CGPA"] =
+                features["Master’s CGPA"] || "Not Available";
+              features.gre = features.gre || "Not Available";
+              features.ielts = features.ielts || "Not Available";
+              features.toefl = features.toefl || "Not Available";
+              features.awards = Array.isArray(features.Awards)
+                ? features.Awards.join(", ")
+                : "Not Available";
+              features.research_interests =
+                features.research_interests || "Not Available";
+              features.latest_papers =
+                features.latest_papers || "Not Available";
+
+              extractedData.push(features);
+
+              // Add a row to the table
+              const row = document.createElement("tr");
+              row.innerHTML = `
+                    <td>${features.name}</td>
+                    <td>${features["Bachelor’s University"]}</td>
+                    <td>${features["Bachelor’s CGPA"]}</td>
+                    <td>${features["Bachelor’s Year"]}</td>
+                    <td>${features["Master’s University"]}</td>
+                    <td>${features["Master’s CGPA"]}</td>
+                    <td>${features.gre}</td>
+                    <td>${features.ielts}</td>
+                    <td>${features.toefl}</td>
+                    <td>${features.awards}</td>
+                    <td>${features.research_interests}</td>
+                    <td>${features.latest_papers}</td>
+                    <td><a href="${features.link}" target="_blank">Open PDF</a></td>
+                `;
+              outputTable.appendChild(row);
+            } catch (error) {
+              console.error(`Error processing ${file.name}:`, error);
             }
+          }
+        }
+      }
+
+      async function extractTextFromPdf(file) {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let text = "";
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          text += content.items.map((item) => item.str).join(" ") + "\n";
         }
 
+        return text;
+      }
 
-        function downloadJson() {
-            if (extractedData.length === 0) {
-                alert("No data to download. Process the resumes first.");
-                return;
-            }
+      async function extractFeaturesWithChatGPT(text) {
+        const response = await fetch(
+          "https://hgaj64gax1.execute-api.us-east-1.amazonaws.com/dev/processResumes",
+          {
+            method: "POST",
+            mode: "cors",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text }),
+          }
+        );
 
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(extractedData, null, 2));
-            const downloadAnchorNode = document.createElement('a');
-            downloadAnchorNode.setAttribute("href", dataStr);
-            downloadAnchorNode.setAttribute("download", "resumes.json");
-            document.body.appendChild(downloadAnchorNode);
-            downloadAnchorNode.click();
-            downloadAnchorNode.remove();
+        const rawData = await response.text();
+
+        try {
+          const parsedResponse = JSON.parse(rawData);
+
+          const content = parsedResponse.choices[0].message.content;
+
+          const data = JSON.parse(content);
+
+          return data;
+        } catch (err) {
+          console.error("Failed to parse response:", rawData);
+          throw new Error("Failed to parse API response as JSON.");
+        }
+      }
+
+      function downloadJson() {
+        if (extractedData.length === 0) {
+          alert("No data to download. Process the resumes first.");
+          return;
         }
 
-        function downloadCsv() {
-            if (extractedData.length === 0) {
-                alert("No data to download. Process the resumes first.");
-                return;
-            }
+        const dataStr =
+          "data:text/json;charset=utf-8," +
+          encodeURIComponent(JSON.stringify(extractedData, null, 2));
+        const downloadAnchorNode = document.createElement("a");
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", "resumes.json");
+        document.body.appendChild(downloadAnchorNode);
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+      }
 
-            const worksheet = XLSX.utils.json_to_sheet(extractedData.map(feature => ({
-                Name: feature.name,
-                "Bachelor’s University": feature.bachelor_university,
-                "Bachelor’s CGPA": feature.bachelor_cgpa,
-                "Bachelor’s Year": feature.bachelor_year,
-                "Master’s University": feature.master_university,
-                "Master’s CGPA": feature.master_cgpa,
-                "GRE Score": feature.gre,
-                "IELTS Score": feature.ielts,
-                "TOEFL Score": feature.toefl,
-                Awards: feature.awards,
-                "Research Interests": feature.research_interests,
-                "Latest Papers": feature.latest_papers,
-                "PDF Link": feature.link
-            })));
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Resumes");
-            XLSX.writeFile(workbook, "resumes.xlsx");
+      function downloadCsv() {
+        if (extractedData.length === 0) {
+          alert("No data to download. Process the resumes first.");
+          return;
         }
+
+        const worksheet = XLSX.utils.json_to_sheet(
+          extractedData.map((feature) => ({
+            Name: feature.name,
+            "Bachelor’s University": feature.bachelor_university,
+            "Bachelor’s CGPA": feature.bachelor_cgpa,
+            "Bachelor’s Year": feature.bachelor_year,
+            "Master’s University": feature.master_university,
+            "Master’s CGPA": feature.master_cgpa,
+            "GRE Score": feature.gre,
+            "IELTS Score": feature.ielts,
+            "TOEFL Score": feature.toefl,
+            Awards: feature.awards,
+            "Research Interests": feature.research_interests,
+            "Latest Papers": feature.latest_papers,
+            "PDF Link": feature.link,
+          }))
+        );
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Resumes");
+        XLSX.writeFile(workbook, "resumes.xlsx");
+      }
+
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdn.jsdelivr.net/npm/pdfjs-dist/build/pdf.worker.min.js";
     </script>
-</body>
+  </body>
 </html>
